@@ -1,19 +1,35 @@
 import {
   type Column,
   type ColumnSort,
+  columnFilteringFeature,
+  constructFilterFn,
   createColumnHelper,
+  createFilteredRowModel,
   createSortedRowModel,
+  filterFn_includesString,
   rowSortingFeature,
   type SortingState,
   sortFn_text,
   tableFeatures,
   useTable,
 } from "@tanstack/react-table"
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, SearchX, X } from "lucide-react"
+import { useState } from "react"
+import { useDebounceCallback, useEventCallback } from "usehooks-ts"
 
+import { AttributeFilter } from "@/components/attribute-filter"
 import { CriticalityBadge } from "@/components/criticality-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
+import { Input } from "@/components/ui/input"
 import {
   Table,
   TableBody,
@@ -22,11 +38,32 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { CRITICALITY_RANK, type Resource } from "@/domain"
+import {
+  CRITICALITIES,
+  CRITICALITY_RANK,
+  ENVIRONMENTS,
+  PROVIDERS,
+  type Resource,
+} from "@/domain"
+
+// Keeps a row whose value is any of the chosen values, so values picked
+// within one attribute combine with OR.
+const filterFn_includesAnyOf = constructFilterFn({
+  filter: (dataValue: unknown, filterValue: readonly unknown[]) =>
+    filterValue.includes(dataValue),
+  autoRemove: (filterValue: unknown) =>
+    !Array.isArray(filterValue) || filterValue.length === 0,
+})
 
 const features = tableFeatures({
+  columnFilteringFeature,
   rowSortingFeature,
+  filteredRowModel: createFilteredRowModel(),
   sortedRowModel: createSortedRowModel(),
+  filterFns: {
+    includesString: filterFn_includesString,
+    includesAnyOf: filterFn_includesAnyOf,
+  },
   sortFns: { text: sortFn_text },
 })
 
@@ -36,6 +73,7 @@ const columns = columnHelper.columns([
   columnHelper.accessor("name", {
     header: "Name",
     sortFn: "text",
+    filterFn: "includesString",
     cell: (info) => <span className="font-medium">{info.getValue()}</span>,
   }),
   columnHelper.accessor("type", {
@@ -48,11 +86,13 @@ const columns = columnHelper.columns([
   columnHelper.accessor("provider", {
     header: "Provider",
     enableSorting: false,
+    filterFn: "includesAnyOf",
     cell: (info) => <Badge variant="secondary">{info.getValue()}</Badge>,
   }),
   columnHelper.accessor("environment", {
     header: "Environment",
     enableSorting: false,
+    filterFn: "includesAnyOf",
     cell: (info) => (
       <Badge variant="outline" className="capitalize">
         {info.getValue()}
@@ -62,6 +102,7 @@ const columns = columnHelper.columns([
   columnHelper.accessor("criticality", {
     header: "Criticality",
     sortDescFirst: true,
+    filterFn: "includesAnyOf",
     sortFn: (a, b) =>
       CRITICALITY_RANK[a.original.criticality] -
       CRITICALITY_RANK[b.original.criticality],
@@ -97,7 +138,16 @@ const SORT_INDICATOR = {
   desc: { ariaSort: "descending", Icon: ArrowDown },
 } as const
 
+const ATTRIBUTE_FILTERS = [
+  { columnId: "provider", label: "Provider", values: PROVIDERS },
+  { columnId: "environment", label: "Environment", values: ENVIRONMENTS },
+  { columnId: "criticality", label: "Criticality", values: CRITICALITIES },
+] as const
+
+const SEARCH_DEBOUNCE_MS = 250
+
 export function ResourceTable({ resources }: { resources: Resource[] }) {
+  const [search, setSearch] = useState("")
   const table = useTable({
     features,
     columns,
@@ -105,6 +155,11 @@ export function ResourceTable({ resources }: { resources: Resource[] }) {
     getRowId: (resource) => resource.id,
     initialState: { sorting: DEFAULT_SORTING },
   })
+
+  const setNameFilter = useEventCallback((value: string) =>
+    table.getColumn("name")?.setFilterValue(value)
+  )
+  const applySearch = useDebounceCallback(setNameFilter, SEARCH_DEBOUNCE_MS)
 
   // Only the primary sort column shows a direction; the name tiebreaker is
   // an implementation detail of every non-name sort.
@@ -119,55 +174,128 @@ export function ResourceTable({ resources }: { resources: Resource[] }) {
     table.setSorting(sortingBy({ id: column.id, desc }))
   }
 
+  const isFiltered = search !== "" || table.state.columnFilters.length > 0
+
+  const changeSearch = (value: string) => {
+    setSearch(value)
+    applySearch(value)
+  }
+
+  const clearFilters = () => {
+    applySearch.cancel()
+    setSearch("")
+    table.resetColumnFilters(true)
+  }
+
+  const rows = table.getRowModel().rows
+
   return (
-    <div className="rounded-lg border">
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="hover:bg-transparent">
-              {headerGroup.headers.map((header) => {
-                const direction = primaryDirection(header.column)
-                const indicator = direction ? SORT_INDICATOR[direction] : null
-                const SortIcon = indicator?.Icon ?? ArrowUpDown
-                return (
-                  <TableHead
-                    key={header.id}
-                    aria-sort={indicator?.ariaSort}
-                    className="px-3"
-                  >
-                    {header.column.getCanSort() ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-2.5"
-                        onClick={() => toggleSort(header.column)}
-                      >
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          type="search"
+          aria-label="Search Resources by name"
+          placeholder="Search by name…"
+          className="h-8 w-full sm:w-64"
+          value={search}
+          onChange={(event) => changeSearch(event.target.value)}
+        />
+        {ATTRIBUTE_FILTERS.map(({ columnId, label, values }) => {
+          const column = table.getColumn(columnId)
+          return (
+            <AttributeFilter
+              key={columnId}
+              label={label}
+              values={values}
+              selected={
+                (column?.getFilterValue() as string[] | undefined) ?? []
+              }
+              onSelectedChange={(selected) => column?.setFilterValue(selected)}
+            />
+          )
+        })}
+        {isFiltered && (
+          <Button variant="ghost" size="sm" onClick={clearFilters}>
+            Clear filters
+            <X />
+          </Button>
+        )}
+        <p role="status" className="text-muted-foreground ml-auto text-sm">
+          {rows.length} of {resources.length} Resources
+        </p>
+      </div>
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
+                {headerGroup.headers.map((header) => {
+                  const direction = primaryDirection(header.column)
+                  const indicator = direction ? SORT_INDICATOR[direction] : null
+                  const SortIcon = indicator?.Icon ?? ArrowUpDown
+                  return (
+                    <TableHead
+                      key={header.id}
+                      aria-sort={indicator?.ariaSort}
+                      className="px-3"
+                    >
+                      {header.column.getCanSort() ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="-ml-2.5"
+                          onClick={() => toggleSort(header.column)}
+                        >
+                          <table.FlexRender header={header} />
+                          <SortIcon
+                            className={indicator ? "" : "text-muted-foreground"}
+                          />
+                        </Button>
+                      ) : (
                         <table.FlexRender header={header} />
-                        <SortIcon
-                          className={indicator ? "" : "text-muted-foreground"}
-                        />
+                      )}
+                    </TableHead>
+                  )
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {rows.length > 0 ? (
+              rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getAllCells().map((cell) => (
+                    <TableCell key={cell.id} className="px-3">
+                      <table.FlexRender cell={cell} />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={columns.length}>
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <SearchX />
+                      </EmptyMedia>
+                      <EmptyTitle>No matching Resources</EmptyTitle>
+                      <EmptyDescription>
+                        No Resources match the current search and filters.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                    <EmptyContent>
+                      <Button variant="outline" onClick={clearFilters}>
+                        Clear filters
                       </Button>
-                    ) : (
-                      <table.FlexRender header={header} />
-                    )}
-                  </TableHead>
-                )
-              })}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getAllCells().map((cell) => (
-                <TableCell key={cell.id} className="px-3">
-                  <table.FlexRender cell={cell} />
+                    </EmptyContent>
+                  </Empty>
                 </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
 }
