@@ -646,3 +646,60 @@ describe("Creating an Application", () => {
     expect(applicationItem("Checkout")).not.toHaveAttribute("aria-current")
   })
 })
+
+function graphNodeLabels(graph: HTMLElement) {
+  return Array.from(
+    graph.querySelectorAll('[aria-roledescription="node"]'),
+    (node) => node.getAttribute("aria-label")
+  )
+}
+
+describe("Application detail", () => {
+  it("shows the selected Application with a graph linking it to each member Resource", async () => {
+    const user = renderApp()
+    await createApplication(
+      user,
+      ["payments-api-prod", "identity-sso-gateway"],
+      "Payments API",
+      "Card payments and SSO"
+    )
+    await createApplication(user, ["payments-db-prod"], "Ledger")
+
+    let graph = within(
+      screen.getByRole("region", { name: "Ledger" })
+    ).getByRole("application", { name: "Ledger graph" })
+    expect(graphNodeLabels(graph)).toEqual(["Ledger", "payments-db-prod"])
+
+    await user.click(applicationItem("Payments API"))
+    const detail = screen.getByRole("region", { name: "Payments API" })
+    expect(detail).toHaveTextContent("Card payments and SSO")
+    graph = within(detail).getByRole("application", {
+      name: "Payments API graph",
+    })
+    expect(graphNodeLabels(graph)).toEqual([
+      "Payments API",
+      "payments-api-prod",
+      "identity-sso-gateway",
+    ])
+    for (const name of ["payments-api-prod", "identity-sso-gateway"]) {
+      expect(
+        within(graph).getByRole("group", {
+          name: `Payments API includes ${name}`,
+        })
+      ).toBeInTheDocument()
+    }
+
+    const resource = resources.find((r) => r.name === "identity-sso-gateway")
+    const node = within(graph).getByRole("group", { name: resource?.name })
+    for (const text of [
+      resource?.type,
+      resource?.provider,
+      resource?.criticality,
+      resource?.region,
+      resource?.owner,
+      ...(resource?.tags ?? []),
+    ]) {
+      expect(within(node).getByText(text as string)).toBeVisible()
+    }
+  })
+})

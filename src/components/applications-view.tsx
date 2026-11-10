@@ -1,5 +1,7 @@
 import { Boxes } from "lucide-react"
+import { useId } from "react"
 
+import { ApplicationGraph } from "@/components/application-graph"
 import { CriticalityBadge } from "@/components/criticality-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -39,6 +41,8 @@ export function ApplicationsView({
   onSelectApplication: (id: string) => void
   onBrowseResources: () => void
 }) {
+  const headingId = useId()
+
   if (applications.length === 0) {
     return (
       <Empty className="border">
@@ -62,53 +66,76 @@ export function ApplicationsView({
   const resourcesById = new Map(
     resources.map((resource) => [resource.id, resource])
   )
-  const selectedId = selectedApplicationId ?? applications[0].id
+  const membersOf = (application: Application) =>
+    application.resourceIds.flatMap((id) => resourcesById.get(id) ?? [])
+  const selected =
+    applications.find(({ id }) => id === selectedApplicationId) ??
+    applications[0]
 
   return (
-    <ul aria-label="Applications" className="flex max-w-md flex-col gap-2">
-      {applications.map((application) => {
-        const applicationResources = application.resourceIds.flatMap(
-          (id) => resourcesById.get(id) ?? []
-        )
-        const criticality = highestCriticality(applicationResources)
-        const selected = application.id === selectedId
-        return (
-          <li key={application.id}>
-            <Item
-              render={<button type="button" />}
-              variant="outline"
-              size="sm"
-              aria-current={selected || undefined}
-              className={cn(
-                "hover:bg-muted/50 cursor-pointer text-left",
-                selected && "border-primary bg-primary/5 hover:bg-primary/5"
-              )}
-              onClick={() => onSelectApplication(application.id)}
-            >
-              <ItemContent className="min-w-0">
-                <ItemTitle>{application.name}</ItemTitle>
-                {application.description && (
-                  <ItemDescription className="line-clamp-1">
-                    {application.description}
-                  </ItemDescription>
+    <div className="grid items-start gap-6 md:grid-cols-[20rem_minmax(0,1fr)]">
+      <ul aria-label="Applications" className="flex flex-col gap-2">
+        {applications.map((application) => {
+          const members = membersOf(application)
+          const criticality = highestCriticality(members)
+          const isSelected = application.id === selected.id
+          return (
+            <li key={application.id}>
+              <Item
+                render={<button type="button" />}
+                variant="outline"
+                size="sm"
+                aria-current={isSelected || undefined}
+                className={cn(
+                  "hover:bg-muted/50 cursor-pointer text-left",
+                  isSelected && "border-primary bg-primary/5 hover:bg-primary/5"
                 )}
-              </ItemContent>
-              <ItemFooter className="justify-start">
-                <span className="text-muted-foreground mr-auto text-xs">
-                  {applicationResources.length}{" "}
-                  {applicationResources.length === 1 ? "Resource" : "Resources"}
-                </span>
-                {criticality && <CriticalityBadge criticality={criticality} />}
-                {providersOf(applicationResources).map((provider) => (
-                  <Badge key={provider} variant="secondary">
-                    {provider}
-                  </Badge>
-                ))}
-              </ItemFooter>
-            </Item>
-          </li>
-        )
-      })}
-    </ul>
+                onClick={() => onSelectApplication(application.id)}
+              >
+                <ItemContent className="min-w-0">
+                  <ItemTitle>{application.name}</ItemTitle>
+                  {application.description && (
+                    <ItemDescription className="line-clamp-1">
+                      {application.description}
+                    </ItemDescription>
+                  )}
+                </ItemContent>
+                <ItemFooter className="flex-wrap justify-start">
+                  <span className="text-muted-foreground mr-auto text-xs">
+                    {members.length}{" "}
+                    {members.length === 1 ? "Resource" : "Resources"}
+                  </span>
+                  {criticality && (
+                    <CriticalityBadge criticality={criticality} />
+                  )}
+                  {providersOf(members).map((provider) => (
+                    <Badge key={provider} variant="secondary">
+                      {provider}
+                    </Badge>
+                  ))}
+                </ItemFooter>
+              </Item>
+            </li>
+          )
+        })}
+      </ul>
+      <section aria-labelledby={headingId} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <h2 id={headingId} className="text-lg font-semibold">
+            {selected.name}
+          </h2>
+          {selected.description && (
+            <p className="text-muted-foreground text-sm">
+              {selected.description}
+            </p>
+          )}
+        </div>
+        <ApplicationGraph
+          key={selected.id}
+          application={selected}
+          members={membersOf(selected)}
+        />
+      </section>
+    </div>
   )
 }
