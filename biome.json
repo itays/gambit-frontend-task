@@ -51,12 +51,7 @@
   },
   "overrides": [
     {
-      "includes": [
-        "src/components/ui/**",
-        "src/hooks/use-highlighted-code.ts",
-        "src/hooks/use-mobile.ts",
-        "src/lib/highlighter.tsx"
-      ],
+      "includes": ["src/components/ui/**"],
       "formatter": { "enabled": false },
       "linter": { "enabled": false },
       "assist": { "enabled": false }
