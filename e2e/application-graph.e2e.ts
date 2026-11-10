@@ -17,20 +17,23 @@ async function createApplication(page: Page, name: string) {
   await expect(dialog).toBeHidden()
 }
 
-function graphOf(page: Page, application: string) {
+interface Graph {
+  graph: Locator
+  nodes: Locator
+}
+
+function graphOf(page: Page, application: string): Graph {
   const graph = page
     .getByRole("region", { name: application })
     .getByRole("application", { name: `${application} graph` })
   return { graph, nodes: graph.locator('[aria-roledescription="node"]') }
 }
 
-async function expectAllInGraph(graph: Locator) {
+async function expectAllInGraph({ graph, nodes }: Graph) {
   await expect(async () => {
     const frame = await graph.boundingBox()
     if (!frame) throw new Error("graph has no box")
-    for (const node of await graph
-      .locator('[aria-roledescription="node"]')
-      .all()) {
+    for (const node of await nodes.all()) {
       const box = await node.boundingBox()
       if (!box) throw new Error("node has no box")
       expect(box.x).toBeGreaterThanOrEqual(frame.x)
@@ -71,7 +74,7 @@ test("graphs a new Application around its member Resources", async ({
       analytics.graph.getByRole("group", { name: `Analytics includes ${name}` })
     ).toBeAttached()
   }
-  await expectAllInGraph(analytics.graph)
+  await expectAllInGraph(analytics)
 
   await page.getByRole("tab", { name: "Resources" }).click()
   await page.getByRole("button", { name: "Clear filters" }).click()
@@ -86,7 +89,7 @@ test("graphs a new Application around its member Resources", async ({
     .getByRole("button", { name: /^Analytics/ })
     .click()
   await expect(analytics.nodes).toHaveCount(gcp.length + 1)
-  await expectAllInGraph(analytics.graph)
+  await expectAllInGraph(analytics)
 
   expect(pageErrors).toEqual([])
 })
@@ -97,7 +100,8 @@ test("pans, zooms, and drags but never edits the graph", async ({ page }) => {
   await page.getByRole("checkbox", { name: "Select payments-api-prod" }).click()
   await page.getByRole("checkbox", { name: "Select payments-db-prod" }).click()
   await createApplication(page, "Payments")
-  const { graph, nodes } = graphOf(page, "Payments")
+  const payments = graphOf(page, "Payments")
+  const { graph, nodes } = payments
   const resource = graph.getByRole("group", {
     name: "payments-api-prod",
     exact: true,
@@ -116,11 +120,24 @@ test("pans, zooms, and drags but never edits the graph", async ({ page }) => {
     .poll(async () => (await resource.boundingBox())?.x)
     .toBeGreaterThan(start.x + 30)
 
+  const frame = await graph.boundingBox()
   const dragged = await resource.boundingBox()
+  if (!frame || !dragged) throw new Error("graph has no box")
+  await page.mouse.move(frame.x + 40, frame.y + 40)
+  await page.mouse.down()
+  await page.mouse.move(frame.x + 140, frame.y + 40, { steps: 5 })
+  await page.mouse.up()
+  await expect
+    .poll(async () => (await resource.boundingBox())?.x)
+    .toBeGreaterThan(dragged.x + 50)
+
+  const panned = await resource.boundingBox()
   await graph.getByRole("button", { name: "Zoom In" }).click()
   await expect
     .poll(async () => (await resource.boundingBox())?.width)
-    .toBeGreaterThan(dragged?.width ?? Number.POSITIVE_INFINITY)
+    .toBeGreaterThan(panned?.width ?? Number.POSITIVE_INFINITY)
+  await graph.getByRole("button", { name: "Fit View" }).click()
+  await expectAllInGraph(payments)
 
   await resource.focus()
   await page.keyboard.press("Backspace")

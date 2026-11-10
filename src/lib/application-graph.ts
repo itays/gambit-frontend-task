@@ -4,7 +4,7 @@ import type { Application, Resource } from "@/domain"
 
 export type ApplicationNode = Node<{ application: Application }, "application">
 export type ResourceNode = Node<{ resource: Resource }, "resource">
-export type ApplicationGraphNode = ApplicationNode | ResourceNode
+type ApplicationGraphNode = ApplicationNode | ResourceNode
 
 export const RESOURCE_NODE_WIDTH = 224
 const MIN_RADIUS = 280

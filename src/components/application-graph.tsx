@@ -11,9 +11,12 @@ import {
 import { Boxes } from "lucide-react"
 import type { CSSProperties } from "react"
 
-import { CriticalityBadge } from "@/components/criticality-badge"
+import {
+  CRITICALITY_BORDER,
+  CriticalityBadge,
+} from "@/components/criticality-badge"
 import { Badge } from "@/components/ui/badge"
-import type { Application, Criticality, Resource } from "@/domain"
+import type { Application, Resource } from "@/domain"
 import {
   type ApplicationNode,
   applicationGraph,
@@ -21,13 +24,6 @@ import {
   type ResourceNode,
 } from "@/lib/application-graph"
 import { cn } from "@/lib/utils"
-
-const CRITICALITY_BORDER: Record<Criticality, string> = {
-  critical: "border-red-500/70",
-  high: "border-orange-500/70",
-  medium: "border-amber-500/70",
-  low: "border-sky-500/70",
-}
 
 // Edges run center to center, so both ends anchor on an invisible handle at the node's middle.
 const CENTER_HANDLE: CSSProperties = {

@@ -689,17 +689,22 @@ describe("Application detail", () => {
       ).toBeInTheDocument()
     }
 
-    const resource = resources.find((r) => r.name === "identity-sso-gateway")
-    const node = within(graph).getByRole("group", { name: resource?.name })
+    const resource = resources.find(
+      (candidate) => candidate.name === "identity-sso-gateway"
+    )
+    if (!resource) throw new Error("identity-sso-gateway fixture is missing")
+    const resourceNode = within(graph).getByRole("group", {
+      name: resource.name,
+    })
     for (const text of [
-      resource?.type,
-      resource?.provider,
-      resource?.criticality,
-      resource?.region,
-      resource?.owner,
-      ...(resource?.tags ?? []),
+      resource.type,
+      resource.provider,
+      resource.criticality,
+      resource.region,
+      resource.owner,
+      ...resource.tags,
     ]) {
-      expect(within(node).getByText(text as string)).toBeVisible()
+      expect(within(resourceNode).getByText(text)).toBeVisible()
     }
   })
 })

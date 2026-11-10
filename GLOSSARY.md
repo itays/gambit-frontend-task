@@ -33,5 +33,5 @@ An unresolved security finding on a Resource.
 _Avoid_: Alert, finding, vulnerability
 
 **Application**:
-A named, logical group of Resources that together deliver one business function, such as "Payments API". A Resource may belong to any number of Applications.
+A named, logical group of Resources that together deliver one business function, such as "Payments API". The Resources in an Application are its members. A Resource may belong to any number of Applications.
 _Avoid_: Group, collection, project, service
