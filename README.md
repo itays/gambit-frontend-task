@@ -2,6 +2,8 @@
 
 A client-side UI for browsing an organization's monitored cloud Resources, grouping them into Applications, and viewing each Application as a graph.
 
+**Live demo: https://gambit-frontend-task.vercel.app**
+
 ## Running it
 
 Requires Node.js 24 (the version CI uses).
@@ -73,4 +75,13 @@ Run `npx playwright install chromium` once before the first e2e run. Playwright 
 - **Layout unit tests** (`src/lib/application-graph.test.ts`) check the radial graph layout.
 - **End-to-end tests** (`e2e/*.e2e.ts`) cover the flows that need a real browser, including the Application graph.
 
-A Husky pre-commit hook runs Biome on staged files, then typecheck and unit tests. CI runs lint, typecheck, unit tests, build, and e2e on every pull request.
+A Husky pre-commit hook runs Biome on staged files, then typecheck and unit tests. CI runs lint, typecheck, unit tests, build, and e2e on every pull request and every push to `main`.
+
+## Deployment
+
+The app is hosted on [Vercel](https://vercel.com) as a static build. Deploys run from GitHub Actions (`.github/workflows/ci.yml`), not from Vercel's own Git integration, which `vercel.json` turns off. A `deploy` job runs only after the `ci` job passes:
+
+- **Pull requests** get a preview deployment. Its URL is in the `deploy` job's summary. Previews require a Vercel login; production does not.
+- **Pushes to `main`** deploy to production at https://gambit-frontend-task.vercel.app.
+
+The job runs Vercel CLI `pull`, `build`, then `deploy --prebuilt`, authenticated by the `VERCEL_TOKEN` repository secret. The Vercel org and project IDs are set in the workflow.
