@@ -1,3 +1,9 @@
+## Rules
+
+| Rule                                                                                                                                                                                                                                          | Enforced by                                                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| New UI functionality ships with a Playwright test in `e2e/*.e2e.ts`, in the same PR. The test drives the user flow in Chromium. App-level component tests in `src/**/*.test.tsx` do not replace it. Run `npm run test:e2e` before committing. | Review only. Whether a change counts as new UI functionality is a judgment call. |
+
 ## Agent skills
 
 ### Issue tracker
