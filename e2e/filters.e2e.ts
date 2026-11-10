@@ -6,7 +6,7 @@ async function expectShownNames(page: Page, expected: string[]) {
   )
   const names = await page
     .getByRole("table")
-    .locator("tbody tr td:first-child")
+    .locator("tbody tr td:nth-child(2)")
     .allTextContents()
   expect(names.sort()).toEqual([...expected].sort())
 }

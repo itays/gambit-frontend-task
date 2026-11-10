@@ -27,9 +27,25 @@ export interface Application {
   resourceIds: string[]
 }
 
+export type ApplicationDraft = Omit<Application, "id">
+
 export const CRITICALITY_RANK: Record<Criticality, number> = {
   low: 0,
   medium: 1,
   high: 2,
   critical: 3,
+}
+
+export function highestCriticality(
+  resources: readonly Resource[]
+): Criticality | undefined {
+  return CRITICALITIES.find((criticality) =>
+    resources.some((resource) => resource.criticality === criticality)
+  )
+}
+
+export function providersOf(resources: readonly Resource[]): Provider[] {
+  return PROVIDERS.filter((provider) =>
+    resources.some((resource) => resource.provider === provider)
+  )
 }
