@@ -14,6 +14,8 @@ import {
   useTable,
 } from "@tanstack/react-table"
 import { ArrowDown, ArrowUp, ArrowUpDown, SearchX, X } from "lucide-react"
+import { useState } from "react"
+import { useDebounceCallback, useEventCallback } from "usehooks-ts"
 
 import { AttributeFilter } from "@/components/attribute-filter"
 import { CriticalityBadge } from "@/components/criticality-badge"
@@ -142,7 +144,10 @@ const ATTRIBUTE_FILTERS = [
   { columnId: "criticality", label: "Criticality", values: CRITICALITIES },
 ] as const
 
+const SEARCH_DEBOUNCE_MS = 250
+
 export function ResourceTable({ resources }: { resources: Resource[] }) {
+  const [search, setSearch] = useState("")
   const table = useTable({
     features,
     columns,
@@ -150,6 +155,11 @@ export function ResourceTable({ resources }: { resources: Resource[] }) {
     getRowId: (resource) => resource.id,
     initialState: { sorting: DEFAULT_SORTING },
   })
+
+  const setNameFilter = useEventCallback((value: string) =>
+    table.getColumn("name")?.setFilterValue(value)
+  )
+  const applySearch = useDebounceCallback(setNameFilter, SEARCH_DEBOUNCE_MS)
 
   // Only the primary sort column shows a direction; the name tiebreaker is
   // an implementation detail of every non-name sort.
@@ -164,9 +174,19 @@ export function ResourceTable({ resources }: { resources: Resource[] }) {
     table.setSorting(sortingBy({ id: column.id, desc }))
   }
 
-  const nameFilter = table.getColumn("name")
-  const isFiltered = table.state.columnFilters.length > 0
-  const clearFilters = () => table.resetColumnFilters(true)
+  const isFiltered = search !== "" || table.state.columnFilters.length > 0
+
+  const changeSearch = (value: string) => {
+    setSearch(value)
+    applySearch(value)
+  }
+
+  const clearFilters = () => {
+    applySearch.cancel()
+    setSearch("")
+    table.resetColumnFilters(true)
+  }
+
   const rows = table.getRowModel().rows
 
   return (
@@ -177,8 +197,8 @@ export function ResourceTable({ resources }: { resources: Resource[] }) {
           aria-label="Search Resources by name"
           placeholder="Search by name…"
           className="h-8 w-full sm:w-64"
-          value={(nameFilter?.getFilterValue() as string | undefined) ?? ""}
-          onChange={(event) => nameFilter?.setFilterValue(event.target.value)}
+          value={search}
+          onChange={(event) => changeSearch(event.target.value)}
         />
         {ATTRIBUTE_FILTERS.map(({ columnId, label, values }) => {
           const column = table.getColumn(columnId)

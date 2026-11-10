@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent, { type UserEvent } from "@testing-library/user-event"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 
 import { App } from "@/App"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -11,8 +11,12 @@ const CRITICALITY_ASCENDING = ["low", "medium", "high", "critical"]
 const criticalityRank = (criticality: string) =>
   CRITICALITY_ASCENDING.indexOf(criticality.toLowerCase())
 
-function renderApp() {
-  const user = userEvent.setup()
+function renderApp({
+  advanceTimers,
+}: {
+  advanceTimers?: (ms: number) => void
+} = {}) {
+  const user = userEvent.setup(advanceTimers && { advanceTimers })
   render(
     <ThemeProvider defaultTheme="light">
       <App />
@@ -198,11 +202,39 @@ describe("Filtering Resources", () => {
     const expected = namesWhere((r) => r.name.includes("payments-"))
     expect(expected.length).toBeGreaterThan(1)
     expect(expected.length).toBeLessThan(resources.length)
-    expectShownNames(expected)
+    await waitFor(() => expectShownNames(expected))
 
     await user.clear(searchBox())
     await user.type(searchBox(), "Sso")
-    expectShownNames(namesWhere((r) => r.name.includes("sso")))
+    await waitFor(() =>
+      expectShownNames(namesWhere((r) => r.name.includes("sso")))
+    )
+  })
+
+  it("applies the search only once typing pauses", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    try {
+      const user = renderApp({ advanceTimers: vi.advanceTimersByTime })
+
+      await user.type(searchBox(), "sso")
+
+      expectShownNames(namesWhere(() => true))
+      expect(
+        screen.getByRole("button", { name: "Clear filters" })
+      ).toBeVisible()
+
+      act(() => vi.advanceTimersByTime(1000))
+      expectShownNames(namesWhere((r) => r.name.includes("sso")))
+
+      await user.clear(searchBox())
+      await user.type(searchBox(), "payments")
+      await user.click(screen.getByRole("button", { name: "Clear filters" }))
+      act(() => vi.advanceTimersByTime(1000))
+      expect(searchBox()).toHaveValue("")
+      expectShownNames(namesWhere(() => true))
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("combines values within one attribute with OR", async () => {
@@ -221,6 +253,7 @@ describe("Filtering Resources", () => {
     expect(filterButton("Provider")).toHaveAccessibleName(
       "Filter by Provider, 2 selected"
     )
+    expect(within(filterButton("Provider")).getByText("2")).toBeVisible()
     expect(filterButton("Environment")).toHaveAccessibleName(
       "Filter by Environment"
     )
@@ -249,7 +282,7 @@ describe("Filtering Resources", () => {
     )
 
     await user.type(searchBox(), "db")
-    expectShownNames(["payments-db-prod"])
+    await waitFor(() => expectShownNames(["payments-db-prod"]))
   })
 
   it("unchecking the last value removes that filter", async () => {
