@@ -23,8 +23,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run format:check
-      - run: npm run lint
+      - run: npx biome ci
       - run: npm run typecheck
       - run: npm test -- --passWithNoTests
       - run: npm run build

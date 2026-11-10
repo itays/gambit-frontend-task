@@ -20,6 +20,17 @@ To use the components in your app, import them as follows:
 import { Button } from "@/components/ui/button"
 ```
 
+## Linting and formatting
+
+Biome handles linting, formatting, import sorting, and Tailwind class sorting (`biome.json`). shadcn-generated files are excluded.
+
+```bash
+npm run lint      # check
+npm run lint:fix  # apply safe fixes and formatting
+```
+
+A Husky pre-commit hook runs Biome on staged files via lint-staged, then `typecheck` and unit tests.
+
 ## Testing
 
 Unit and component tests use Vitest with jsdom and Testing Library.
