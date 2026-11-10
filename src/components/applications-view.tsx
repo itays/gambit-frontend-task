@@ -67,10 +67,10 @@ export function ApplicationsView({
   return (
     <ul aria-label="Applications" className="flex max-w-md flex-col gap-2">
       {applications.map((application) => {
-        const members = application.resourceIds.flatMap(
+        const applicationResources = application.resourceIds.flatMap(
           (id) => resourcesById.get(id) ?? []
         )
-        const criticality = highestCriticality(members)
+        const criticality = highestCriticality(applicationResources)
         const selected = application.id === selectedId
         return (
           <li key={application.id}>
@@ -95,11 +95,11 @@ export function ApplicationsView({
               </ItemContent>
               <ItemFooter className="justify-start">
                 <span className="text-muted-foreground mr-auto text-xs">
-                  {members.length}{" "}
-                  {members.length === 1 ? "Resource" : "Resources"}
+                  {applicationResources.length}{" "}
+                  {applicationResources.length === 1 ? "Resource" : "Resources"}
                 </span>
                 {criticality && <CriticalityBadge criticality={criticality} />}
-                {providersOf(members).map((provider) => (
+                {providersOf(applicationResources).map((provider) => (
                   <Badge key={provider} variant="secondary">
                     {provider}
                   </Badge>

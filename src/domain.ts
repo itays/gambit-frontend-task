@@ -27,6 +27,8 @@ export interface Application {
   resourceIds: string[]
 }
 
+export type ApplicationDraft = Omit<Application, "id">
+
 export const CRITICALITY_RANK: Record<Criticality, number> = {
   low: 0,
   medium: 1,

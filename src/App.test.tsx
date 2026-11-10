@@ -580,7 +580,7 @@ describe("Creating an Application", () => {
     expectSelected([])
   })
 
-  it("shows the highest member Criticality and only the Providers spanned", async () => {
+  it("shows the highest Criticality among its Resources and only the Providers spanned", async () => {
     const user = renderApp()
     const gcp = resources.filter((r) => r.provider === "GCP")
     const highest = gcp.reduce((max, r) =>

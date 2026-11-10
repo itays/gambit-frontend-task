@@ -19,10 +19,7 @@ import { useState } from "react"
 import { useDebounceCallback, useEventCallback } from "usehooks-ts"
 
 import { AttributeFilter } from "@/components/attribute-filter"
-import {
-  type ApplicationDraft,
-  CreateApplicationDialog,
-} from "@/components/create-application-dialog"
+import { CreateApplicationDialog } from "@/components/create-application-dialog"
 import { CriticalityBadge } from "@/components/criticality-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -46,6 +43,7 @@ import {
 } from "@/components/ui/table"
 import {
   type Application,
+  type ApplicationDraft,
   CRITICALITIES,
   CRITICALITY_RANK,
   ENVIRONMENTS,
@@ -191,6 +189,9 @@ export function ResourceTable({
 }) {
   const [search, setSearch] = useState("")
   const [creating, setCreating] = useState(false)
+  // Fixed when the dialog opens, so its list stays intact while it animates
+  // closed after the selection clears.
+  const [reviewedResources, setReviewedResources] = useState<Resource[]>([])
   const table = useTable({
     features,
     columns,
@@ -366,7 +367,13 @@ export function ResourceTable({
           >
             Clear
           </Button>
-          <Button size="sm" onClick={() => setCreating(true)}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setReviewedResources(selectedResources)
+              setCreating(true)
+            }}
+          >
             Create Application
           </Button>
         </section>
@@ -374,7 +381,7 @@ export function ResourceTable({
       <CreateApplicationDialog
         open={creating}
         onOpenChange={setCreating}
-        resources={selectedResources}
+        resources={reviewedResources}
         applications={applications}
         onCreate={createApplication}
       />

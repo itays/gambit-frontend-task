@@ -2,13 +2,12 @@ import { Cloud } from "lucide-react"
 import { useState } from "react"
 
 import { ApplicationsView } from "@/components/applications-view"
-import type { ApplicationDraft } from "@/components/create-application-dialog"
 import { ResourceTable } from "@/components/resource-table"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Toaster, toast } from "@/components/ui/toast"
 import { resources } from "@/data/resources"
-import type { Application } from "@/domain"
+import type { Application, ApplicationDraft } from "@/domain"
 
 type Tab = "resources" | "applications"
 

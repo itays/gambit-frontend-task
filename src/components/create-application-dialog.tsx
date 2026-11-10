@@ -20,9 +20,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import type { Application, Resource } from "@/domain"
-
-export type ApplicationDraft = Omit<Application, "id">
+import type { Application, ApplicationDraft, Resource } from "@/domain"
 
 function nameError(name: string, applications: readonly Application[]) {
   if (name === "") return "Name is required"
@@ -84,9 +82,9 @@ function CreateApplicationForm({
   const submit = (event: FormEvent) => {
     event.preventDefault()
     const trimmedName = name.trim()
-    const invalid = nameError(trimmedName, applications)
-    if (invalid) {
-      setError(invalid)
+    const message = nameError(trimmedName, applications)
+    if (message) {
+      setError(message)
       return
     }
     onCreate({
