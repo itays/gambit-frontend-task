@@ -19,3 +19,14 @@ To use the components in your app, import them as follows:
 ```tsx
 import { Button } from "@/components/ui/button"
 ```
+
+## Testing
+
+Unit and component tests use Vitest with jsdom and Testing Library.
+
+```bash
+npm test            # run once
+npm run test:watch  # watch mode
+```
+
+Place tests next to the code they cover as `src/**/*.test.ts(x)`. Shared setup lives in `src/test/setup.ts`.
