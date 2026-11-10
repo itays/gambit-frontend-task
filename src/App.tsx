@@ -1,21 +1,42 @@
-import { Button } from "@/components/ui/button"
+import { Cloud } from "lucide-react"
+import { useState } from "react"
+
+import { ApplicationsView } from "@/components/applications-view"
+import { ResourceTable } from "@/components/resource-table"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { resources } from "@/data/resources"
+
+type Tab = "resources" | "applications"
 
 export function App() {
+  const [tab, setTab] = useState<Tab>("resources")
+
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
+    <div className="bg-background min-h-svh">
+      <header className="border-b">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
+          <div className="flex items-center gap-2">
+            <Cloud className="text-primary size-5" aria-hidden />
+            <h1 className="font-semibold">Cloud Inventory</h1>
+          </div>
+          <ThemeToggle />
         </div>
-        <div className="text-muted-foreground font-mono text-xs">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
+      </header>
+      <main className="mx-auto max-w-6xl px-6 py-6">
+        <Tabs value={tab} onValueChange={(value: Tab) => setTab(value)}>
+          <TabsList>
+            <TabsTrigger value="resources">Resources</TabsTrigger>
+            <TabsTrigger value="applications">Applications</TabsTrigger>
+          </TabsList>
+          <TabsContent value="resources" keepMounted className="pt-4">
+            <ResourceTable resources={resources} />
+          </TabsContent>
+          <TabsContent value="applications" className="pt-4">
+            <ApplicationsView onBrowseResources={() => setTab("resources")} />
+          </TabsContent>
+        </Tabs>
+      </main>
     </div>
   )
 }
-
-export default App
