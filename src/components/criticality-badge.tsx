@@ -10,6 +10,13 @@ const CRITICALITY_STYLES: Record<Criticality, string> = {
   low: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400",
 }
 
+export const CRITICALITY_BORDER: Record<Criticality, string> = {
+  critical: "border-red-500/70",
+  high: "border-orange-500/70",
+  medium: "border-amber-500/70",
+  low: "border-sky-500/70",
+}
+
 export function CriticalityBadge({
   criticality,
 }: {
