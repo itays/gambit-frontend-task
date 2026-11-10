@@ -33,3 +33,17 @@ export const CRITICALITY_RANK: Record<Criticality, number> = {
   high: 2,
   critical: 3,
 }
+
+export function highestCriticality(
+  resources: readonly Resource[]
+): Criticality | undefined {
+  return CRITICALITIES.find((criticality) =>
+    resources.some((resource) => resource.criticality === criticality)
+  )
+}
+
+export function providersOf(resources: readonly Resource[]): Provider[] {
+  return PROVIDERS.filter((provider) =>
+    resources.some((resource) => resource.provider === provider)
+  )
+}

@@ -94,13 +94,14 @@ function expectShownNames(expected: string[]) {
 }
 
 describe("Resource inventory", () => {
-  it("lists every Resource with all six columns populated", () => {
+  it("lists every Resource with a selection checkbox and six populated columns", () => {
     renderApp()
 
     const rows = within(screen.getByRole("table")).getAllByRole("row").slice(1)
     expect(rows).toHaveLength(resources.length)
     for (const row of rows) {
-      const cells = within(row).getAllByRole("cell")
+      const [selectCell, ...cells] = within(row).getAllByRole("cell")
+      expect(within(selectCell).getByRole("checkbox")).not.toBeChecked()
       expect(cells).toHaveLength(6)
       for (const cell of cells) expect(cell.textContent).not.toBe("")
     }
@@ -377,5 +378,271 @@ describe("Applications tab", () => {
       "true"
     )
     expect(screen.getByRole("table")).toBeVisible()
+  })
+})
+
+function rowCheckbox(name: string) {
+  return screen.getByRole("checkbox", { name: `Select ${name}` })
+}
+
+function headerCheckbox() {
+  return screen.getByRole("checkbox", {
+    name: "Select all matching Resources",
+  })
+}
+
+function selectionBar() {
+  return screen.queryByRole("region", { name: "Selected Resources" })
+}
+
+async function selectResources(user: UserEvent, names: string[]) {
+  for (const name of names) await user.click(rowCheckbox(name))
+}
+
+function expectSelected(names: string[]) {
+  for (const resource of resources) {
+    const checkbox = rowCheckbox(resource.name)
+    if (names.includes(resource.name)) expect(checkbox).toBeChecked()
+    else expect(checkbox).not.toBeChecked()
+  }
+  const bar = selectionBar()
+  if (names.length === 0) expect(bar).not.toBeInTheDocument()
+  else expect(bar).toHaveTextContent(`${names.length} selected`)
+}
+
+describe("Selecting Resources", () => {
+  it("shows the selection bar with the count and hides it on Clear", async () => {
+    const user = renderApp()
+    expectSelected([])
+
+    await selectResources(user, ["payments-api-prod", "identity-sso-gateway"])
+    expectSelected(["payments-api-prod", "identity-sso-gateway"])
+
+    await user.click(rowCheckbox("payments-api-prod"))
+    expectSelected(["identity-sso-gateway"])
+
+    await user.click(
+      within(selectionBar() as HTMLElement).getByRole("button", {
+        name: "Clear",
+      })
+    )
+    expectSelected([])
+  })
+
+  it("keeps Resources hidden by filters selected and counted", async () => {
+    const user = renderApp()
+    await selectResources(user, ["payments-api-prod", "identity-sso-gateway"])
+
+    await pickFilterValues(user, "Provider", ["AWS"])
+    expect(
+      screen.queryByRole("checkbox", { name: "Select identity-sso-gateway" })
+    ).not.toBeInTheDocument()
+    expect(selectionBar()).toHaveTextContent("2 selected")
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }))
+    expectSelected(["payments-api-prod", "identity-sso-gateway"])
+  })
+
+  it("selects and deselects only the Resources matching the filters from the header", async () => {
+    const user = renderApp()
+    const gcp = namesWhere((r) => r.provider === "GCP")
+    expect(gcp.length).toBeGreaterThan(1)
+    await selectResources(user, ["identity-sso-gateway"])
+
+    await pickFilterValues(user, "Provider", ["GCP"])
+    expect(headerCheckbox()).not.toBeChecked()
+    await user.click(rowCheckbox(gcp[0]))
+    expect(headerCheckbox()).toHaveAttribute("aria-checked", "mixed")
+
+    await user.click(headerCheckbox())
+    expect(headerCheckbox()).toBeChecked()
+    expect(selectionBar()).toHaveTextContent(`${gcp.length + 1} selected`)
+
+    await user.click(screen.getByRole("button", { name: "Clear filters" }))
+    expectSelected([...gcp, "identity-sso-gateway"])
+    expect(headerCheckbox()).toHaveAttribute("aria-checked", "mixed")
+
+    await pickFilterValues(user, "Provider", ["GCP"])
+    await user.click(headerCheckbox())
+    expect(headerCheckbox()).not.toBeChecked()
+    await user.click(screen.getByRole("button", { name: "Clear filters" }))
+    expectSelected(["identity-sso-gateway"])
+  })
+})
+
+function createDialog() {
+  return screen.queryByRole("dialog", { name: "Create Application" })
+}
+
+async function openCreateDialog(user: UserEvent) {
+  await user.click(
+    within(selectionBar() as HTMLElement).getByRole("button", {
+      name: "Create Application",
+    })
+  )
+  return screen.findByRole("dialog", { name: "Create Application" })
+}
+
+async function createApplication(
+  user: UserEvent,
+  resourceNames: string[],
+  name: string,
+  description = ""
+) {
+  await user.click(screen.getByRole("tab", { name: "Resources" }))
+  await selectResources(user, resourceNames)
+  const dialog = await openCreateDialog(user)
+  await user.type(within(dialog).getByRole("textbox", { name: "Name" }), name)
+  if (description) {
+    await user.type(
+      within(dialog).getByRole("textbox", { name: "Description" }),
+      description
+    )
+  }
+  await user.click(within(dialog).getByRole("button", { name: "Create" }))
+  return dialog
+}
+
+function applicationItems() {
+  return within(
+    screen.getByRole("list", { name: "Applications" })
+  ).getAllByRole("button")
+}
+
+function applicationItem(name: string) {
+  return within(screen.getByRole("list", { name: "Applications" })).getByRole(
+    "button",
+    { name: new RegExp(`^${name}`) }
+  )
+}
+
+describe("Creating an Application", () => {
+  it("reviews the selected Resources and keeps the selection on Cancel", async () => {
+    const user = renderApp()
+    await selectResources(user, ["payments-api-prod", "payments-db-prod"])
+
+    await pickFilterValues(user, "Provider", ["Azure"])
+    const dialog = await openCreateDialog(user)
+    expect(within(dialog).getByText("payments-api-prod")).toBeVisible()
+    expect(within(dialog).getByText("payments-db-prod")).toBeVisible()
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(createDialog()).not.toBeInTheDocument())
+    await user.click(screen.getByRole("button", { name: "Clear filters" }))
+    expectSelected(["payments-api-prod", "payments-db-prod"])
+  })
+
+  it("requires a name that is not blank", async () => {
+    const user = renderApp()
+    const dialog = await createApplication(user, ["payments-api-prod"], "   ")
+
+    const name = within(dialog).getByRole("textbox", { name: "Name" })
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Name is required"
+    )
+    expect(name).toHaveAttribute("aria-invalid", "true")
+    expect(createDialog()).toBeVisible()
+  })
+
+  it("switches to the new, highlighted Application and clears the selection", async () => {
+    const user = renderApp()
+    await createApplication(
+      user,
+      ["payments-api-prod", "payments-db-prod", "identity-sso-gateway"],
+      "  Payments API  ",
+      "Card payments and their identity dependency"
+    )
+
+    await waitFor(() => expect(createDialog()).not.toBeInTheDocument())
+    expect(
+      await screen.findByText('Created Application "Payments API"')
+    ).toBeVisible()
+    expect(screen.getByRole("tab", { name: "Applications" })).toHaveAttribute(
+      "aria-selected",
+      "true"
+    )
+
+    const item = applicationItem("Payments API")
+    expect(item).toHaveAttribute("aria-current", "true")
+    expect(within(item).getByText("Payments API").textContent).toBe(
+      "Payments API"
+    )
+    expect(item).toHaveTextContent(
+      "Card payments and their identity dependency"
+    )
+    expect(item).toHaveTextContent("3 Resources")
+    expect(within(item).getByText("critical")).toBeVisible()
+    expect(within(item).getByText("AWS")).toBeVisible()
+    expect(within(item).getByText("Azure")).toBeVisible()
+    expect(within(item).queryByText("GCP")).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("tab", { name: "Resources" }))
+    expectSelected([])
+  })
+
+  it("shows the highest member Criticality and only the Providers spanned", async () => {
+    const user = renderApp()
+    const gcp = resources.filter((r) => r.provider === "GCP")
+    const highest = gcp.reduce((max, r) =>
+      criticalityRank(r.criticality) > criticalityRank(max.criticality)
+        ? r
+        : max
+    )
+    await createApplication(
+      user,
+      gcp.map((r) => r.name),
+      "Analytics"
+    )
+
+    const item = applicationItem("Analytics")
+    expect(item).toHaveTextContent(`${gcp.length} Resources`)
+    expect(within(item).getByText(highest.criticality)).toBeVisible()
+    expect(within(item).getByText("GCP")).toBeVisible()
+    expect(within(item).queryByText("AWS")).not.toBeInTheDocument()
+    expect(within(item).queryByText("Azure")).not.toBeInTheDocument()
+  })
+
+  it("rejects a name used by another Application, ignoring case", async () => {
+    const user = renderApp()
+    await createApplication(user, ["payments-api-prod"], "Payments API")
+
+    const dialog = await createApplication(
+      user,
+      ["payments-db-prod"],
+      " payments api "
+    )
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      'An Application named "payments api" already exists'
+    )
+    expect(createDialog()).toBeVisible()
+  })
+
+  it("adds the same Resource to two Applications and selects either from the list", async () => {
+    const user = renderApp()
+    await createApplication(user, ["payments-api-prod"], "Payments API")
+    await createApplication(
+      user,
+      ["payments-api-prod", "payments-db-prod"],
+      "Checkout"
+    )
+
+    const items = applicationItems()
+    expect(
+      items.map(
+        (item) => within(item).getByText(/^\d+ Resources?$/).textContent
+      )
+    ).toEqual(["1 Resource", "2 Resources"])
+    expect(items[0]).toBe(applicationItem("Payments API"))
+    expect(items[1]).toBe(applicationItem("Checkout"))
+    expect(applicationItem("Checkout")).toHaveAttribute("aria-current", "true")
+    expect(applicationItem("Payments API")).not.toHaveAttribute("aria-current")
+
+    await user.click(applicationItem("Payments API"))
+    expect(applicationItem("Payments API")).toHaveAttribute(
+      "aria-current",
+      "true"
+    )
+    expect(applicationItem("Checkout")).not.toHaveAttribute("aria-current")
   })
 })

@@ -7,6 +7,7 @@ import {
   createFilteredRowModel,
   createSortedRowModel,
   filterFn_includesString,
+  rowSelectionFeature,
   rowSortingFeature,
   type SortingState,
   sortFn_text,
@@ -18,9 +19,14 @@ import { useState } from "react"
 import { useDebounceCallback, useEventCallback } from "usehooks-ts"
 
 import { AttributeFilter } from "@/components/attribute-filter"
+import {
+  type ApplicationDraft,
+  CreateApplicationDialog,
+} from "@/components/create-application-dialog"
 import { CriticalityBadge } from "@/components/criticality-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Empty,
   EmptyContent,
@@ -39,6 +45,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
+  type Application,
   CRITICALITIES,
   CRITICALITY_RANK,
   ENVIRONMENTS,
@@ -57,6 +64,7 @@ const filterFn_includesAnyOf = constructFilterFn({
 
 const features = tableFeatures({
   columnFilteringFeature,
+  rowSelectionFeature,
   rowSortingFeature,
   filteredRowModel: createFilteredRowModel(),
   sortedRowModel: createSortedRowModel(),
@@ -70,6 +78,32 @@ const features = tableFeatures({
 const columnHelper = createColumnHelper<typeof features, Resource>()
 
 const columns = columnHelper.columns([
+  columnHelper.display({
+    id: "select",
+    header: ({ table }) => {
+      const rows = table.getRowModel().rows
+      const selectedCount = rows.filter((row) => row.getIsSelected()).length
+      const allSelected = rows.length > 0 && selectedCount === rows.length
+      return (
+        <Checkbox
+          aria-label="Select all matching Resources"
+          checked={allSelected}
+          indeterminate={selectedCount > 0 && !allSelected}
+          disabled={rows.length === 0}
+          // Without pagination the page is every row matching the filters, so
+          // Resources hidden by filters keep their selection.
+          onCheckedChange={() => table.toggleAllPageRowsSelected(!allSelected)}
+        />
+      )
+    },
+    cell: ({ row }) => (
+      <Checkbox
+        aria-label={`Select ${row.original.name}`}
+        checked={row.getIsSelected()}
+        onCheckedChange={(checked) => row.toggleSelected(checked)}
+      />
+    ),
+  }),
   columnHelper.accessor("name", {
     header: "Name",
     sortFn: "text",
@@ -146,8 +180,17 @@ const ATTRIBUTE_FILTERS = [
 
 const SEARCH_DEBOUNCE_MS = 250
 
-export function ResourceTable({ resources }: { resources: Resource[] }) {
+export function ResourceTable({
+  resources,
+  applications,
+  onCreateApplication,
+}: {
+  resources: Resource[]
+  applications: readonly Application[]
+  onCreateApplication: (draft: ApplicationDraft) => void
+}) {
   const [search, setSearch] = useState("")
+  const [creating, setCreating] = useState(false)
   const table = useTable({
     features,
     columns,
@@ -188,6 +231,15 @@ export function ResourceTable({ resources }: { resources: Resource[] }) {
   }
 
   const rows = table.getRowModel().rows
+  const selectedResources = table
+    .getSelectedRowModel()
+    .rows.map((row) => row.original)
+
+  const createApplication = (draft: ApplicationDraft) => {
+    onCreateApplication(draft)
+    table.resetRowSelection(true)
+    setCreating(false)
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -263,7 +315,10 @@ export function ResourceTable({ resources }: { resources: Resource[] }) {
           <TableBody>
             {rows.length > 0 ? (
               rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() ? "selected" : undefined}
+                >
                   {row.getAllCells().map((cell) => (
                     <TableCell key={cell.id} className="px-3">
                       <table.FlexRender cell={cell} />
@@ -296,6 +351,33 @@ export function ResourceTable({ resources }: { resources: Resource[] }) {
           </TableBody>
         </Table>
       </div>
+      {selectedResources.length > 0 && (
+        <section
+          aria-label="Selected Resources"
+          className="bg-background sticky bottom-4 flex items-center gap-2 rounded-lg border p-2 pl-4 shadow-md"
+        >
+          <span className="mr-auto text-sm font-medium">
+            {selectedResources.length} selected
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => table.resetRowSelection(true)}
+          >
+            Clear
+          </Button>
+          <Button size="sm" onClick={() => setCreating(true)}>
+            Create Application
+          </Button>
+        </section>
+      )}
+      <CreateApplicationDialog
+        open={creating}
+        onOpenChange={setCreating}
+        resources={selectedResources}
+        applications={applications}
+        onCreate={createApplication}
+      />
     </div>
   )
 }
