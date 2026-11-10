@@ -38,3 +38,25 @@ jobs:
             test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VERCEL_ORG_ID: team_uVaRKxsqJPw7e4KYIBeO5eeF
+      VERCEL_PROJECT_ID: prj_tlyDWD3nuuqZt2b2CCD1sDkyHf0p
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ENVIRONMENT: ${{ github.event_name == 'push' && 'production' || 'preview' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm install --global vercel@65.14.0
+      - run: vercel pull --yes --environment="$VERCEL_ENVIRONMENT" --token="$VERCEL_TOKEN"
+      - run: vercel build --environment="$VERCEL_ENVIRONMENT" --token="$VERCEL_TOKEN"
+      - run: |
+          url=$(vercel deploy --prebuilt --json --environment="$VERCEL_ENVIRONMENT" --token="$VERCEL_TOKEN" | jq -r .deployment.url)
+          echo "Deployed to $VERCEL_ENVIRONMENT: $url" >> "$GITHUB_STEP_SUMMARY"
