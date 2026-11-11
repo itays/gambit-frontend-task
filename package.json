@@ -15,6 +15,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",
     "preview": "vite preview",
+    "prototype:selection-bar": "vite --open '/?variant=A'",
     "prepare": "husky"
   },
   "dependencies": {
