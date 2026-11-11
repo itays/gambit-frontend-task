@@ -21,6 +21,7 @@ import { useDebounceCallback, useEventCallback } from "usehooks-ts"
 import { AttributeFilter } from "@/components/attribute-filter"
 import { CreateApplicationDialog } from "@/components/create-application-dialog"
 import { CriticalityBadge } from "@/components/criticality-badge"
+import { SelectionBar } from "@/components/selection-bar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -352,32 +353,14 @@ export function ResourceTable({
           </TableBody>
         </Table>
       </div>
-      {selectedResources.length > 0 && (
-        <section
-          aria-label="Selected Resources"
-          className="bg-background sticky bottom-4 flex items-center gap-2 rounded-lg border p-2 pl-4 shadow-md"
-        >
-          <span className="mr-auto text-sm font-medium">
-            {selectedResources.length} selected
-          </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => table.resetRowSelection(true)}
-          >
-            Clear
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => {
-              setReviewedResources(selectedResources)
-              setCreating(true)
-            }}
-          >
-            Create Application
-          </Button>
-        </section>
-      )}
+      <SelectionBar
+        count={selectedResources.length}
+        onClear={() => table.resetRowSelection(true)}
+        onCreate={() => {
+          setReviewedResources(selectedResources)
+          setCreating(true)
+        }}
+      />
       <CreateApplicationDialog
         open={creating}
         onOpenChange={setCreating}

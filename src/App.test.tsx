@@ -370,7 +370,9 @@ describe("Applications tab", () => {
 
     await user.click(screen.getByRole("tab", { name: "Applications" }))
     expect(screen.getByText("No applications yet")).toBeVisible()
-    expect(screen.queryByRole("table")).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(screen.queryByRole("table")).not.toBeInTheDocument()
+    )
 
     await user.click(screen.getByRole("button", { name: "Go to Resources" }))
     expect(screen.getByRole("tab", { name: "Resources" })).toHaveAttribute(
@@ -399,34 +401,34 @@ async function selectResources(user: UserEvent, names: string[]) {
   for (const name of names) await user.click(rowCheckbox(name))
 }
 
-function expectSelected(names: string[]) {
+async function expectSelected(names: string[]) {
   for (const resource of resources) {
     const checkbox = rowCheckbox(resource.name)
     if (names.includes(resource.name)) expect(checkbox).toBeChecked()
     else expect(checkbox).not.toBeChecked()
   }
-  const bar = selectionBar()
-  if (names.length === 0) expect(bar).not.toBeInTheDocument()
-  else expect(bar).toHaveTextContent(`${names.length} selected`)
+  if (names.length === 0)
+    await waitFor(() => expect(selectionBar()).not.toBeInTheDocument())
+  else expect(selectionBar()).toHaveTextContent(`${names.length} selected`)
 }
 
 describe("Selecting Resources", () => {
   it("shows the selection bar with the count and hides it on Clear", async () => {
     const user = renderApp()
-    expectSelected([])
+    await expectSelected([])
 
     await selectResources(user, ["payments-api-prod", "identity-sso-gateway"])
-    expectSelected(["payments-api-prod", "identity-sso-gateway"])
+    await expectSelected(["payments-api-prod", "identity-sso-gateway"])
 
     await user.click(rowCheckbox("payments-api-prod"))
-    expectSelected(["identity-sso-gateway"])
+    await expectSelected(["identity-sso-gateway"])
 
     await user.click(
       within(selectionBar() as HTMLElement).getByRole("button", {
         name: "Clear",
       })
     )
-    expectSelected([])
+    await expectSelected([])
   })
 
   it("keeps Resources hidden by filters selected and counted", async () => {
@@ -440,7 +442,7 @@ describe("Selecting Resources", () => {
     expect(selectionBar()).toHaveTextContent("2 selected")
 
     await user.click(screen.getByRole("button", { name: "Clear filters" }))
-    expectSelected(["payments-api-prod", "identity-sso-gateway"])
+    await expectSelected(["payments-api-prod", "identity-sso-gateway"])
   })
 
   it("selects and deselects only the Resources matching the filters from the header", async () => {
@@ -459,14 +461,14 @@ describe("Selecting Resources", () => {
     expect(selectionBar()).toHaveTextContent(`${gcp.length + 1} selected`)
 
     await user.click(screen.getByRole("button", { name: "Clear filters" }))
-    expectSelected([...gcp, "identity-sso-gateway"])
+    await expectSelected([...gcp, "identity-sso-gateway"])
     expect(headerCheckbox()).toHaveAttribute("aria-checked", "mixed")
 
     await pickFilterValues(user, "Provider", ["GCP"])
     await user.click(headerCheckbox())
     expect(headerCheckbox()).not.toBeChecked()
     await user.click(screen.getByRole("button", { name: "Clear filters" }))
-    expectSelected(["identity-sso-gateway"])
+    await expectSelected(["identity-sso-gateway"])
   })
 })
 
@@ -529,7 +531,7 @@ describe("Creating an Application", () => {
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }))
     await waitFor(() => expect(createDialog()).not.toBeInTheDocument())
     await user.click(screen.getByRole("button", { name: "Clear filters" }))
-    expectSelected(["payments-api-prod", "payments-db-prod"])
+    await expectSelected(["payments-api-prod", "payments-db-prod"])
   })
 
   it("requires a name that is not blank", async () => {
@@ -577,7 +579,7 @@ describe("Creating an Application", () => {
     expect(within(item).queryByText("GCP")).not.toBeInTheDocument()
 
     await user.click(screen.getByRole("tab", { name: "Resources" }))
-    expectSelected([])
+    await expectSelected([])
   })
 
   it("shows the highest Criticality among its Resources and only the Providers spanned", async () => {

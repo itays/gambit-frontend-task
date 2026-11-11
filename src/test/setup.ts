@@ -30,6 +30,8 @@ Object.defineProperties(HTMLElement.prototype, {
     },
   },
 })
+// jsdom runs no CSS transitions, so no element has an animation to wait for.
+Element.prototype.getAnimations ??= () => []
 
 afterEach(() => {
   cleanup()
