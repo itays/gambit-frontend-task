@@ -62,3 +62,21 @@ test("groups selected Resources into an Application", async ({ page }) => {
 
   expect(pageErrors).toEqual([])
 })
+
+test("the selection bar animates out and unmounts on Clear", async ({
+  page,
+}) => {
+  await page.goto("/")
+  const selectionBar = page.getByRole("region", { name: "Selected Resources" })
+  // Matches the bar while it is inert mid-exit, which getByRole would skip.
+  const mountedBar = page.locator('section[aria-label="Selected Resources"]')
+
+  await page
+    .getByRole("checkbox", { name: "Select identity-sso-gateway" })
+    .click()
+  await expect(selectionBar).toHaveCSS("opacity", "1")
+  await selectionBar.getByRole("button", { name: "Clear" }).click()
+
+  await expect(mountedBar).toContainText("1 selected")
+  await expect(mountedBar).toHaveCount(0)
+})
